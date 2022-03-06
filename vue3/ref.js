@@ -1,6 +1,6 @@
 const bucket = new WeakMap();
 let activeEffect, effectStack = [];
-const data = { OK: true, text: 'hello world', foo: 1 };
+const data = { OK: true, text: 'hello world', foo: 1, bar: 2 };
 // const data = { foo: 1 };
 
 const obj = new Proxy(data, {
@@ -47,7 +47,6 @@ function trigger(target, key) {
     })
     // console.warn(key, effectsToRun);
     effectsToRun.forEach(effectFn => {
-        // effectFn()
         if (effectFn.options.scheduler) {
             effectFn.options.scheduler(effectFn);
         } else {
@@ -64,13 +63,17 @@ function effect(fn, options = {}) {
         cleanup(effectFn);
         activeEffect = effectFn;
         effectStack.push(effectFn);
-        fn();
+        const res = fn();
         effectStack.pop();
         activeEffect = effectStack[effectStack.length - 1];
+        return res;
     }
     effectFn.deps = [];
     effectFn.options = options;
-    effectFn();
+    if (options.lazy) { 
+        effectFn();
+    }
+    return effectFn;
 }
 
 function cleanup(effectFn) {
@@ -79,6 +82,30 @@ function cleanup(effectFn) {
         deps.delete(effectFn);
     }
     effectFn.deps.length = 0;
+}
+
+function computed(getter) {
+    let value;
+    let dirty = true;
+    const effectFn = effect(getter, {
+        lazy: true,
+        scheduler() {
+            dirty = true;
+            trigger(obj, 'value')
+        }
+    })
+
+    const obj = {
+        get value() {
+            if (dirty) {
+                value = effectFn()
+                dirty = false;
+            }
+            track(obj, 'value')
+            return value;
+        }
+    }
+    return obj;
 }
 
 const jobQueue = new Set();
@@ -94,6 +121,8 @@ function flushJob() {
         isFlushing = false;
     })
 }
+
+
 // effect(() => {
 //     console.log('effect run');
 //     // document.body.innerText = obj.text;
@@ -129,7 +158,7 @@ function flushJob() {
 
 // obj.foo = obj.foo + 1;
 
-effect(() => {
+/* effect(() => {
     console.log(obj.foo);
 }, {
     scheduler(fn) {
@@ -139,4 +168,7 @@ effect(() => {
     }
 })
 obj.foo++
-console.log('结束了');
+console.log('结束了'); */
+
+const sum = computed(() => obj.foo + obj.bar);
+console.log(sum);
