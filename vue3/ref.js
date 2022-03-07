@@ -53,11 +53,11 @@ function trigger(target, key) {
             effectFn();
         }
     });
-    // effects.forEach(fn => fn());
+    // effects.forEach(fn => fn()); 
 }
 
 function effect(fn, options = {}) {
-    // console.warn('effect fn')
+    console.warn('effect fn')
     const effectFn = () => {
         // debugger;
         cleanup(effectFn);
@@ -106,6 +106,38 @@ function computed(getter) {
         }
     }
     return obj;
+}
+
+function watch(source, cb) {
+    debugger
+    let getter;
+    if (typeof source === 'function') {
+        getter = source;
+    } else {
+        getter = () => traverse(source)
+    }
+
+    effect(
+        () => getter(),
+        {
+            scheduler() {
+                cb();
+            },
+            lazy: true
+        }
+    )
+}
+
+function traverse(value, seen = new Set()) {
+    // console.warn('traverse',  value)
+    // debugger
+    if (typeof value !== 'object' || value === null || seen.has(value)) return;
+    seen.add(value);
+    for (const k in value) {
+        traverse(value[k], seen);
+    }
+    console.warn('value = ', value)
+    return value;
 }
 
 const jobQueue = new Set();
@@ -170,5 +202,9 @@ function flushJob() {
 obj.foo++
 console.log('结束了'); */
 
-const sum = computed(() => obj.foo + obj.bar);
-console.log(sum);
+// const sum = computed(() => obj.foo + obj.bar);
+// console.log(sum);
+
+watch(() => obj.foo, () => console.log('obj 的值变了'));
+obj.foo = 4;
+
